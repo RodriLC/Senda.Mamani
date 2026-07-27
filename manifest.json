@@ -1,0 +1,22 @@
+{
+  "name": "La Senda de Mamani",
+  "short_name": "Senda Mamani",
+  "description": "Un roguelike de cartas inspirado en la mitología boliviana.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "icons": [
+    {
+      "src": "img/app_icon.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "img/app_icon.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ]
+}
+

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>La Senda de Mamani: Leyendas de Bolivia</title>
+
+    <!-- Enlace al manifiesto de la PWA para hacerlo instalable -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Fuente Retro Pixelada de Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <style>
+        /* ==========================================================================
+        1. ESTILOS GLOBALES Y RESETEO
+        ========================================================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            /* Evita que el usuario seleccione texto o arrastre elementos nativos en móviles */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #121218;
+            /* Gris nocturno profundo del GDD */
+            color: #ffffff;
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* ==========================================================================
+        2. CONTENEDOR ADAPTATIVO (FUERZA RELACIÓN DE ASPECTO 16:9)
+        ========================================================================== */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 56.25vw;
+            max-height: 100vh;
+            max-height: -webkit-fill-available;
+            /* Ajuste especial para navegadores móviles */
+            max-width: 177.78vh;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+            overflow: hidden;
+            background-color: #000000;
+
+            /* Centramos el contenedor verticalmente si sobra espacio */
+            margin: auto;
+        }
+
+        /* ==========================================================================
+        3. CANVAS PRINCIPAL DEL JUEGO
+        ========================================================================== */
+        #menu-ui {
+            background: transparent;
+            /* O si tienes una imagen de fondo en alta resolución: */
+            /* background: url('tu_imagen.webp') no-repeat center center; */
+            /* background-size: cover; */
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1;
+
+            /* IMPORTANTE: Forzamos al navegador a que mantenga los píxeles nítidos con !important */
+            image-rendering: -moz-crisp-edges !important;
+            image-rendering: -webkit-crisp-edges !important;
+            image-rendering: pixelated !important;
+            image-rendering: crisp-edges !important;
+
+            display: block;
+            /* Se mostrará desde el inicio del juego */
+        }
+
+        /* ==========================================================================
+        4. INTERFAZ HTML SUPERPUESTA (MENÚS Y BOTONES)
+        ========================================================================== */
+        .overlay-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2%;
+        }
+
+        /* Títulos Principales (Responsivos con vw) */
+        .game-title {
+            color: #ffcc00;
+            /* Amarillo Wiphala */
+            font-size: 2.5vw;
+            text-shadow: 0.3vw 0.3vw 0px #000000;
+            margin-bottom: 1%;
+            letter-spacing: 0.2vw;
+        }
+
+        .game-subtitle {
+            color: #e6005c;
+            /* Magenta Aguayo */
+            font-size: 1.1vw;
+            text-shadow: 0.15vw 0.15vw 0px #000000;
+            margin-bottom: 5%;
+        }
+
+        /* Grupo de Botones */
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5vw;
+            width: 38%;
+        }
+
+        /* Botones de Estilo Retro */
+        .btn-retro {
+            background-color: #121218;
+            color: #ffffff;
+            border: 0.3vw solid #ffcc00;
+            /* Borde de oro */
+            padding: 1.2vw 1vw;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.9vw;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0px 0.4vw 0px #000000;
+            transition: transform 0.05s ease, box-shadow 0.05s ease;
+        }
+
+        /* Estados de interacción del botón */
+        .btn-retro:hover {
+            background-color: #ffcc00;
+            color: #121218;
+            transform: translateY(-0.1vw);
+            box-shadow: 0px 0.5vw 0px #000000;
+        }
+
+        .btn-retro:active {
+            transform: translateY(0.2vw);
+            box-shadow: 0px 0.2vw 0px #000000;
+        }
+
+        /* Botón retro deshabilitado */
+        .btn-retro:disabled,
+        .btn-retro.disabled {
+            background-color: #22222b !important;
+            color: #555566 !important;
+            border-color: #444455 !important;
+            box-shadow: 0px 0.2vw 0px #000000 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            opacity: 0.6;
+        }
+
+        /* ==========================================================================
+           SISTEMA DE TOAST HTML (Notificaciones)
+        ========================================================================== */
+        #toast-container {
+            position: absolute;
+            top: 9%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(3px, 0.5vw, 8px);
+            pointer-events: none;
+        }
+
+        .toast-notif {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(8px, 1.1vw, 16px);
+            padding: clamp(7px, 1vw, 14px) clamp(14px, 2vw, 26px);
+            border-radius: clamp(3px, 0.4vw, 7px);
+            border-width: 1.5px;
+            border-style: solid;
+            text-align: center;
+            line-height: 1.9;
+            min-width: clamp(160px, 26vw, 360px);
+            max-width: clamp(200px, 40vw, 450px);
+            box-shadow: 0 clamp(2px, 0.3vw, 5px) clamp(6px, 1.2vw, 16px) rgba(0,0,0,0.7),
+                        inset 0 1px 0 rgba(255,255,255,0.08);
+            animation: toastEntrar 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            position: relative;
+        }
+
+        .toast-notif.saliendo {
+            animation: toastSalir 0.35s ease-in forwards;
+        }
+
+        .toast-notif .toast-titulo {
+            display: block;
+            font-size: clamp(8px, 1.05vw, 15px);
+            margin-bottom: clamp(3px, 0.3vw, 6px);
+        }
+
+        .toast-notif .toast-sub {
+            display: block;
+            font-size: clamp(7px, 0.8vw, 12px);
+            opacity: 0.85;
+        }
+
+        /* Tipos de toast */
+        .toast-info    { background: rgba(10,30,55,0.96);  border-color: #4db6f5; color: #7dd3fc; }
+        .toast-compra  { background: rgba(5,35,15,0.96);   border-color: #4ade80; color: #86efac; }
+        .toast-error   { background: rgba(55,5,5,0.96);    border-color: #f87171; color: #fca5a5; }
+        .toast-especial{ background: rgba(45,28,0,0.96);   border-color: #fbbf24; color: #fde68a; }
+        .toast-eventoMal { background: rgba(55,5,5,0.96);  border-color: #f87171; color: #fca5a5; }
+        .toast-eventoBien{ background: rgba(5,35,15,0.96); border-color: #4ade80; color: #86efac; }
+
+        @keyframes toastEntrar {
+            from { opacity: 0; transform: translateY(-120%) scale(0.85); }
+            to   { opacity: 1; transform: translateY(0)     scale(1);    }
+        }
+        @keyframes toastSalir {
+            from { opacity: 1; transform: translateY(0)    scale(1);    }
+            to   { opacity: 0; transform: translateY(-80%) scale(0.9);  }
+        }
+
+        /* ==========================================================================
+           MODAL DE CONFIRMACIÓN HTML
+        ========================================================================== */
+        #confirmacion-ui {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.78);
+            z-index: 600;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Press Start 2P', monospace;
+            animation: modalEntrar 0.25s ease-out forwards;
+        }
+
+        #confirmacion-ui.visible {
+            display: flex;
+        }
+
+        @keyframes modalEntrar {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        .confirm-caja {
+            background: #0e1117;
+            border: clamp(1px, 0.18vw, 3px) solid #f59e0b;
+            border-radius: clamp(4px, 0.6vw, 10px);
+            padding: clamp(14px, 2.5vw, 36px) clamp(16px, 2.8vw, 40px);
+            width: clamp(260px, 42vw, 580px);
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 0 clamp(10px, 3vw, 40px) rgba(245,158,11,0.25),
+                        inset 0 1px 0 rgba(255,255,255,0.05);
+            animation: cajaEntrar 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes cajaEntrar {
+            from { transform: scale(0.8); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+
+        .confirm-titulo {
+            color: #fde68a;
+            font-size: clamp(10px, 1.4vw, 20px);
+            margin-bottom: clamp(8px, 1vw, 16px);
+            text-shadow: 0 0 clamp(5px, 1vw, 14px) rgba(253,230,138,0.4);
+        }
+
+        .confirm-sub {
+            color: #9ca3af;
+            font-size: clamp(8px, 0.85vw, 13px);
+            line-height: 1.8;
+            margin-bottom: clamp(12px, 2vw, 28px);
+        }
+
+        .confirm-botones {
+            display: flex;
+            gap: clamp(8px, 1.2vw, 18px);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .confirm-btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(8px, 0.9vw, 13px);
+            padding: clamp(7px, 0.8vw, 14px) clamp(14px, 2vw, 28px);
+            border-radius: clamp(3px, 0.4vw, 6px);
+            border-width: 1.5px;
+            border-style: solid;
+            cursor: pointer;
+            transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.1s ease;
+            box-shadow: 0 clamp(2px, 0.3vw, 5px) 0 rgba(0,0,0,0.5);
+        }
+
+        .confirm-btn:hover  { transform: translateY(-2px); box-shadow: 0 4px 0 rgba(0,0,0,0.5); }
+        .confirm-btn:active { transform: translateY(1px);  box-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+
+        .confirm-btn-aceptar  { background: #b45309; border-color: #fbbf24; color: #fef3c7; }
+        .confirm-btn-aceptar:hover  { background: #d97706; border-color: #fcd34d; }
+
+        .confirm-btn-cancelar { background: #1f2937; border-color: #4b5563; color: #9ca3af; }
+        .confirm-btn-cancelar:hover { background: #374151; border-color: #6b7280; color: #e5e7eb; }
+    </style>
+</head>
+
+<body>
+
+    <!-- =====================================================
+         PANTALLA DE ROTACIÓN (solo visible en portrait)
+         z-index 9999 bloquea todo lo demás
+    ====================================================== -->
+    <div id="rotate-screen" style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #000;
+        z-index: 9999;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        font-family: 'Press Start 2P', monospace;
+        gap: 4vw;
+    ">
+        <!-- ícono de teléfono girando -->
+        <div style="font-size: 18vw; animation: girar 2s ease-in-out infinite alternate;">&#128261;</div>
+        <p style="color: #ffcc00; font-size: 4vw; line-height: 1.6; margin: 0 8vw;">
+            GIRA TU<br>DISPOSITIVO
+        </p>
+        <p style="color: #888; font-size: 2vw; margin: 0;">El juego requiere modo horizontal</p>
+    </div>
+    <style>
+        @keyframes girar {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(-90deg);
+            }
+        }
+    </style>
+
+    <!-- Contenedor maestro del juego -->
+    <div id="game-container">
+
+        <!-- Aquí es donde se dibujará todo el combate y el mapa del juego -->
+        <canvas id="gameCanvas" width="480" height="270"
+            style="image-rendering: pixelated; image-rendering: crisp-edges;"></canvas>
+
+        <!-- Capa de interfaz para el HUD del juego (Flota sobre el canvas con letras perfectas) -->
+        <div id="hud-ui" class="overlay-ui"
+            style="display: none; pointer-events: none; justify-content: flex-start; align-items: flex-start; padding: 3% 4%; z-index: 200;">
+            <div id="hud-texto"
+                style="color: #2ecc71; font-size: 1.2vw; text-shadow: 0.15vw 0.15vw 0px #000000; text-align: left; line-height: 1.8vw; font-family: 'Press Start 2P', monospace;">
+                <!-- Aquí meteremos el texto dinámicamente con JS -->
+            </div>
+
+            <!-- Botón fijo para volver al Menú Principal desde cualquier pantalla -->
+            <button onclick="abrirMenuPausa()" style="
+                    pointer-events: auto;
+                    position: absolute;
+                    top: 2%;
+                    right: 2%;
+                    background: #121218;
+                    color: #ffcc00;
+                    border: 0.2vw solid #ffcc00;
+                    padding: 0.5vw 1vw;
+                    font-family: 'Press Start 2P', monospace;
+                    font-size: 0.65vw;
+                    cursor: pointer;
+                    box-shadow: 0 0.3vw 0 #000;
+                    transition: transform 0.05s, box-shadow 0.05s;
+                "
+                onmouseover="this.style.background='#ffcc00';this.style.color='#121218';this.style.transform='translateY(-0.1vw)'"
+                onmouseout="this.style.background='#121218';this.style.color='#ffcc00';this.style.transform=''">&#9776;
+                MEN&Uacute;</button>
+
+            <!-- Contenedor para las etiquetas de los nodos del mapa -->
+            <div id="nodos-ui"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+        </div>
+
+        <!-- Capa de interfaz para el Menú de Inicio -->
+        <div id="menu-ui" class="overlay-ui">
+            <h1 class="game-title">LA SENDA DE MAMANI</h1>
+            <h2 class="game-subtitle">La Senda de Bolivia</h2>
+
+            <div class="button-group">
+                <button class="btn-retro" onmouseover="sistemaAudio.sfx('hover')"
+                    onclick="sistemaAudio.inicializar(); sistemaAudio.sfx('confirmar'); iniciarViaje()">INICIAR
+                    VIAJE</button>
+                <button class="btn-retro" onmouseover="sistemaAudio.sfx('hover')"
+                    onclick="sistemaAudio.inicializar(); sistemaAudio.sfx('click'); mostrarLogros()">🏆 LOGROS</button>
+                <button class="btn-retro" onmouseover="sistemaAudio.sfx('hover')"
+                    onclick="sistemaAudio.inicializar(); sistemaAudio.sfx('click'); mostrarCreditos()">CRÉDITOS</button>
+            </div>
+        </div>
+
+        <!-- Capa de interfaz para la pantalla de Logros -->
+        <div id="logros-ui" class="overlay-ui"
+            style="display: none; background: rgba(30, 15, 0, 0.95); flex-direction: column; align-items: center; font-family: 'Press Start 2P', monospace; text-align: center; padding: 2vw; overflow: hidden; box-sizing: border-box;">
+            <h2 style="color: #f1c40f; font-size: 1.8vw; margin-top: 2%; margin-bottom: 2%; text-shadow: 2px 2px 0px #000;">
+                🏆 EL MUSEO DE MAMANI 🏆</h2>
+
+            <!-- Pestañas -->
+            <div style="display: flex; gap: 1vw; margin-bottom: 2%;">
+                <button class="btn-retro" id="tab-reliquias" onclick="cambiarPestañaLogros('reliquias')" style="font-size: 1vw; padding: 1% 2%; background: #ffcc00; color: #121218;">RELIQUIAS</button>
+                <button class="btn-retro" id="tab-stats" onclick="cambiarPestañaLogros('stats')" style="font-size: 1vw; padding: 1% 2%;">ESTADÍSTICAS</button>
+                <button class="btn-retro" id="tab-cartas" onclick="cambiarPestañaLogros('cartas')" style="font-size: 1vw; padding: 1% 2%;">CARTAS</button>
+            </div>
+
+            <!-- Contenedor dinámico -->
+            <div id="logros-content" style="width: 80%; height: 60%; background: rgba(0,0,0,0.6); border: 4px solid #5a3b20; border-radius: 1vw; padding: 2vw; overflow-y: auto; text-align: left; position: relative;">
+                <!-- JS inyectará el contenido aquí -->
+            </div>
+
+            <button class="btn-retro" onclick="cerrarLogros()" style="margin-top: 2%; font-size: 1vw; padding: 1% 3%;">VOLVER AL MENÚ</button>
+        </div>
+
+        <!-- Capa de interfaz para la pantalla de Créditos -->
+        <div id="creditos-ui" class="overlay-ui"
+            style="display: none; background: rgba(18, 18, 24, 0.95); flex-direction: column; justify-content: center; align-items: center; font-family: 'Press Start 2P', monospace; text-align: center;">
+            <h2 style="color: #ffcc00; font-size: 1.5vw; margin-bottom: 2%; text-shadow: 2px 2px 0px #000;">
+                DESARROLLADORES</h2>
+
+            <p style="color: #ffffff; font-size: 0.8vw; line-height: 1.6vw; margin-bottom: 3%;">
+                Proyecto creado por la Comunidad de Ingeniería de Sistemas<br>
+                <span style="color: #2ecc71;">Universidad Tecnológica de Santa Cruz (UTEPSA)</span><br><br>
+                Diseño y Pixel Art de Personajes:<br>
+                Phillips Antelo<br>
+                Rodrigo Laime Choque<br>
+                Jose Alfredo Alvarez Calle<br>
+                Programación de Motor: Mamani &amp; Team<br><br>
+                ¡Gracias por jugar!
+            </p>
+
+            <button class="btn-retro" onclick="sistemaAudio.sfx('retroceder'); cerrarCreditos()"
+                style="font-size: 0.8vw; padding: 1% 2%;">VOLVER AL
+                MENÚ</button>
+        </div>
+
+
+        <!-- Menú de Pausa Unificado -->
+        <div id="pause-menu-ui" class="overlay-ui"
+            style="display: none; background: rgba(18, 18, 24, 0.95); flex-direction: column; justify-content: center; align-items: center; font-family: 'Press Start 2P', monospace; text-align: center;">
+            <h2 style="color: #ffcc00; font-size: 2vw; margin-bottom: 5%; text-shadow: 2px 2px 0px #000;">
+                PAUSA</h2>
+
+            <div style="display: flex; flex-direction: column; gap: 1.5vw; width: 40%;">
+                <button class="btn-retro" onclick="cerrarMenuPausa()"
+                    style="font-size: 1vw; padding: 3% 2%;">CONTINUAR</button>
+                <button class="btn-retro" onclick="abrirStats()"
+                    style="font-size: 1vw; padding: 3% 2%;">ESTADÍSTICAS</button>
+                <button class="btn-retro" id="btn-pause-bolsa" onclick="abrirEquipoDesdePausa()"
+                    style="font-size: 1vw; padding: 3% 2%;">BOLSA</button>
+                <button class="btn-retro" id="btn-pause-mazo" onclick="abrirMazo()"
+                    style="font-size: 1vw; padding: 3% 2%;">MAZOS</button>
+                <button class="btn-retro" onclick="volverAlMenuPrincipal()"
+                    style="font-size: 1vw; padding: 3% 2%;">VOLVER AL MENÚ</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de Estadísticas -->
+        <div id="stats-ui" class="overlay-ui"
+            style="display: none; background: rgba(18, 18, 24, 0.95); flex-direction: column; justify-content: center; align-items: center; font-family: 'Press Start 2P', monospace; text-align: center;">
+            <h2 style="color: #2ecc71; font-size: 2vw; margin-bottom: 5%; text-shadow: 2px 2px 0px #000;">
+                ESTADÍSTICAS</h2>
+
+            <div id="stats-container"
+                style="display: flex; flex-direction: column; gap: 2vw; color: white; font-size: 1.2vw; text-align: left; background: rgba(255,255,255,0.05); padding: 5%; border-radius: 1vw; border: 2px solid #555;">
+                <!-- Se llena con JS -->
+            </div>
+
+            <button class="btn-retro" onclick="cerrarStats()"
+                style="font-size: 1vw; padding: 2% 4%; margin-top: 5%;">VOLVER</button>
+        </div>
+
+        <!-- Pantalla de Mazo -->
+        <div id="mazo-ui" class="overlay-ui"
+            style="display: none; background: rgba(18, 18, 24, 0.95); flex-direction: column; justify-content: flex-start; align-items: center; font-family: 'Press Start 2P', monospace; text-align: center; overflow-y: auto; padding: 2% 0;">
+            <h2 style="color: #3498db; font-size: 2vw; margin-bottom: 1%; text-shadow: 2px 2px 0px #000;">
+                TU MAZO ACTUAL</h2>
+            <div style="color: #ffffff; font-size: 0.8vw; margin-bottom: 2%;">Arrastra cartas desde tu colección a su
+                ranura para equiparlas</div>
+
+            <div id="mazo-activos-container"
+                style="display: flex; gap: 2vw; justify-content: center; width: 90%; padding: 1%; margin-bottom: 2%;">
+                <!-- Se llena con JS -->
+            </div>
+
+            <h2
+                style="color: #e67e22; font-size: 1.5vw; margin-top: 1%; margin-bottom: 1%; text-shadow: 2px 2px 0px #000;">
+                COLECCIÓN</h2>
+
+            <div id="mazo-coleccion-container"
+                style="display: flex; flex-wrap: wrap; gap: 1.5vw; justify-content: center; width: 90%; padding: 1%; margin-bottom: 4%; overflow-y: auto; max-height: 35vh;">
+                <!-- Se llena con JS -->
+            </div>
+
+            <button class="btn-retro" onclick="cerrarMazo()"
+                style="font-size: 1vw; padding: 1% 2%; margin-top: auto; margin-bottom: 2%;">VOLVER</button>
+        </div>
+
+        <div id="equipamiento-ui" class="overlay-ui"
+            style="display: none; background: rgba(18, 18, 24, 0.95); flex-direction: column; justify-content: flex-start; align-items: center; font-family: 'Press Start 2P', monospace; text-align: center; overflow-y: auto; padding: 2% 0;">
+            <h2 style="color: #e67e22; font-size: 1.5vw; margin-bottom: 2%; text-shadow: 2px 2px 0px #000;">
+                BOLSA</h2>
+            <div style="color: #ffffff; font-size: 0.8vw; margin-bottom: 2%;">Haz clic en un consumible para equiparlo o
+                desequiparlo (Máx 3)</div>
+
+            <!-- Slots de Combate -->
+            <div id="equipo-slots" style="display: flex; gap: 2vw; margin-bottom: 4%;">
+                <!-- Se llenan por JS -->
+            </div>
+
+            <h3 style="color: #ffcc00; font-size: 1vw; margin-bottom: 1%;">TU MOCHILA</h3>
+
+            <!-- Inventario Grid -->
+            <div id="equipo-inventario"
+                style="display: flex; flex-wrap: wrap; gap: 1vw; justify-content: center; width: 80%; max-height: 40%; overflow-y: auto; padding: 1%; margin-bottom: 4%;">
+                <!-- Se llenan por JS -->
+            </div>
+
+            <button class="btn-retro" onclick="sistemaAudio.sfx('retroceder'); cerrarEquipo()"
+                style="font-size: 0.8vw; padding: 1% 2%; margin-top: auto; margin-bottom: 2%;">VOLVER</button>
+        </div>
+
+        <!-- =====================================================
+             SISTEMA DE TOASTS HTML (Notificaciones elegantes)
+        ====================================================== -->
+        <div id="toast-container"></div>
+
+        <!-- =====================================================
+             MODAL DE CONFIRMACIÓN HTML
+        ====================================================== -->
+        <div id="confirmacion-ui">
+            <div class="confirm-caja">
+                <div class="confirm-titulo" id="confirm-titulo-text"></div>
+                <div class="confirm-sub"   id="confirm-sub-text"></div>
+                <div class="confirm-botones">
+                    <button class="confirm-btn confirm-btn-aceptar"  id="confirm-btn-aceptar">ACEPTAR</button>
+                    <button class="confirm-btn confirm-btn-cancelar" id="confirm-btn-cancelar">CANCELAR</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="app.js?v=30"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con exito!', reg))
+                    .catch(err => console.log('Fallo al registrar el Service Worker', err));
+            });
+        }
+    </script>
+</body>
+
+
+</html>
